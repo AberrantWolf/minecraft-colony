@@ -1,0 +1,1 @@
+{ "name": "@minecraft-colony/simulation", "private": true, "type": "module", "exports": { ".": "./src/index.ts" } }

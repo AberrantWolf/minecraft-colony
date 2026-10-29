@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true,
+    "noEmit": true, "skipLibCheck": true, "allowImportingTsExtensions": true,
+    "lib": ["ES2022"], "types": [], "noUncheckedIndexedAccess": true
+  },
+  "include": ["packages/simulation/src/**/*.ts"]
+}

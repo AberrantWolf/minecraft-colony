@@ -1,0 +1,20 @@
+{
+  "name": "minecraft-colony",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "node --experimental-strip-types --test packages/simulation/test/*.test.ts",
+    "simulate": "node --experimental-strip-types packages/headless/src/main.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=22.16"
+  }
+}

@@ -1,0 +1,1 @@
+{ "name": "@minecraft-colony/bedrock", "private": true, "type": "module", "description": "Future Bedrock Script API adapter; not yet a deployable add-on" }
