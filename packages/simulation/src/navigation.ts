@@ -98,9 +98,10 @@ export function requestReachable(c: Colony, d: Dwarf, world: WorldPort): Reachab
 }
 export function navigationObstacles(c: Colony): Set<string> {
   const cells = new Set(c.orders.filter(o => o.kind === 'place-block' && (o.status === 'pending' || o.status === 'awaiting-world') && o.block !== 'air').map(o => key(o.at)));
+  const harvested = new Set(c.orders.filter(o => o.kind === 'gather-block' && o.status === 'complete').map(o => key(o.at)));
   // Harvestable blocks are temporary footing. Route around them, never onto them.
   for (const s of c.sources) {
-    if (c.orders.some(o => o.kind === 'gather-block' && o.status === 'complete' && key(o.at) === key(s.at))) continue;
+    if (harvested.has(key(s.at))) continue;
     cells.add(key(s.at)); cells.add(key({ ...s.at, y: s.at.y + 1 }));
   }
   return cells;

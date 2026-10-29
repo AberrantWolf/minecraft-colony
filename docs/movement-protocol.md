@@ -49,4 +49,6 @@ The engine keeps paths and only checks the current position/next edge during mov
 
 Queued jobs do not expand across unavailable positions. Reloading chunks resumes them under the same shared budget, rather than recalculating every dwarf's route at once. Corrections and changed obstacles use this scheduler too. Snapshots retain scheduling order, partial frontiers, delayed retries, command revisions, and feedback sequences. `colony.pathfinding` reports start/expansion counters for headless checks.
 
-The budget bounds graph expansion, not the entire engine's wall-clock cost. Candidate/source scans, shelter planning, and colony loops still scale with state size. Global navigation beyond the local search horizon, crowd avoidance, continuous physics, carried resources, durable entity bindings, and real adapter integration remain future work.
+The budget bounds graph expansion, not the entire engine's wall-clock cost. Candidate/source scans, shelter planning, and colony loops still scale with state size. Global navigation beyond the local search horizon, crowd avoidance, continuous physics, batched logistics, durable entity bindings, and real adapter integration remain future work.
+
+Hauling now uses this same protocol for storage and work-site waypoints. A transfer requires confirmed adjacent presence, valid loaded storage, and a separate work tick. Corrections preserve carried resources and haul phase while invalidating stale route caches. See [hauling](hauling.md); stockpile zones still have no real container adapter.

@@ -5,3 +5,4 @@ export { addResourceSource, NEEDS } from './needs.ts';
 export * from './navigation.ts';
 export * from './clock.ts';
 export * from './movement.ts';
+export * from './stockpiles.ts';

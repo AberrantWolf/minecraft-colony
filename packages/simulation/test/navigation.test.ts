@@ -22,18 +22,18 @@ test('20 simulation ticks per second give 2.5 blocks/second and no banked instan
   runHeadless(c, w, 1); assert.equal(c.gathered.food, 1); accounting(c);
 });
 test('construction reserves no wood until arrival and takes a separate work tick', () => {
-  const { c, w, d } = corridor(); c.sources = []; w.set({ x: 6, y: 1, z: 0 }, 'air'); c.resources.wood = 1;
+  const { c, w, d } = corridor(); c.sources = []; w.set({ x: 6, y: 1, z: 0 }, 'air'); c.dwarves[0]!.carry.wood = 1;
   const order = queueBlock(c, { x: 6, y: 1, z: 0 }, 'air', 'wood');
   until(c, w, () => d.motion?.kind === 'move'); runHeadless(c, w, 38);
-  assert.equal(c.resources.wood, 1); assert.equal(order.status, 'pending');
+  assert.equal(c.dwarves[0]!.carry.wood, 1); assert.equal(order.status, 'pending');
   assert.equal(order.owner, d.id); assert.equal(d.activity, 'walking');
   runHeadless(c, w, 1); assert.equal(d.position.x, 5); assert.equal(order.status, 'pending');
-  step(c, w); assert.equal(order.status, 'awaiting-world'); assert.equal(c.resources.wood, 0);
+  step(c, w); assert.equal(order.status, 'awaiting-world'); assert.equal(c.dwarves[0]!.carry.wood, 0);
   assert.equal(w.read(order.at), 'air'); reconcile(c, w); assert.equal(w.read(order.at), 'wood'); accounting(c, 1);
 });
 test('unreachable gathering and construction never reserve materials or emit operations', () => {
   const { c, w, d } = corridor(); w.set({ x: 3, y: 0, z: 0 }, 'air');
-  c.resources.wood = 1; const order = queueBlock(c, { x: 7, y: 1, z: 0 }, 'air', 'wood');
+  c.dwarves[0]!.carry.wood = 1; const order = queueBlock(c, { x: 7, y: 1, z: 0 }, 'air', 'wood');
   runHeadless(c, w, 100);
   assert.deepEqual(d.position, { x: 0, y: 1, z: 0 }); assert.equal(c.pending.length, 0);
   assert.equal(order.status, 'pending'); assert.equal(order.owner, undefined); assert.equal(c.gathered.food, 0); accounting(c, 1);
@@ -84,7 +84,7 @@ test('a new obstruction invalidates a cached route and the dwarf takes a safe de
 test('unloading freezes travel and preparation, while eating/rest remain possible', () => {
   const { c, w, d } = corridor(); until(c, w, () => d.motion?.kind === 'move'); runHeadless(c, w, 2);
   const position = { ...d.position }; w.available = false;
-  d.hunger = 80; c.resources.food = 1; runHeadless(c, w, 1); assert.equal(d.activity, 'eating');
+  d.hunger = 80; c.dwarves[0]!.carry.food = 1; runHeadless(c, w, 1); assert.equal(d.activity, 'eating');
   assert.equal(d.moveTicks, 0); // Unloading clears travel credit even during a needs action.
   d.tiredness = 60; runHeadless(c, w, 160);
   assert.deepEqual(d.position, position); assert.equal(d.moveTicks, 0); assert.equal(c.pending.length, 0);
@@ -100,7 +100,7 @@ test('unknown cells cannot be traversed and blocked targets can be retried after
 test('needs pause an existing route without advancing it or losing the task', () => {
   const { c, w, d } = corridor(); until(c, w, () => d.motion?.kind === 'move'); runHeadless(c, w, 1);
   const task = d.task; const path = structuredClone(d.path); const before = { ...d.position };
-  d.hunger = 80; c.resources.food = 1; step(c, w);
+  d.hunger = 80; c.dwarves[0]!.carry.food = 1; step(c, w);
   assert.equal(d.task, task); assert.deepEqual(d.path, path); assert.deepEqual(d.position, before); assert.equal(d.moveTicks, 0); assert.equal(d.motion?.kind, 'stop');
   runHeadless(c, w, 8); assert.equal(d.position.x, 1); accounting(c, 0, 1);
 });
@@ -113,7 +113,7 @@ test('a lost route releases a walking claim so other reachable work can be chose
   until(c, w, () => c.gathered.food > 0); assert.ok(c.gathered.food > 0); accounting(c);
 });
 test('permission revoked while walking stops the task before any placement', () => {
-  const { c, w, d } = corridor(); c.sources = []; w.set({ x: 6, y: 1, z: 0 }, 'air'); c.resources.wood = 1;
+  const { c, w, d } = corridor(); c.sources = []; w.set({ x: 6, y: 1, z: 0 }, 'air'); c.dwarves[0]!.carry.wood = 1;
   const o = queueBlock(c, { x: 6, y: 1, z: 0 }, 'air', 'wood'); until(c, w, () => d.motion?.kind === 'move');
   const position = { ...d.position }; c.territory = []; runHeadless(c, w, 10);
   assert.equal(o.status, 'blocked'); assert.deepEqual(d.position, position); assert.equal(w.read(o.at), 'air'); accounting(c, 1);
@@ -122,15 +122,19 @@ test('construction waits instead of placing into a dwarf, and harvest cannot rem
   const { c, w, d, target } = corridor(); d.position = { x: 5, y: 1, z: 0 };
   c.sources = []; addResourceSource(c, target, 'wood'); w.set(target, 'wood');
   const blockAt = { x: 5, y: 1, z: 1 }; const o = queueBlock(c, blockAt, 'air', 'wood');
-  step(c, w); // Harvest contribution prepared while adjacent, before another dwarf arrives.
+  step(c, w);
   const other = addDwarf(c, 'Domas', { ...target, y: 2 });
   assert.equal(standable(w, other.position), true);
   reconcile(c, w); assert.equal(w.read(target), 'wood'); assert.equal(c.gathered.wood, 0);
-  other.position = { x: 4, y: 1, z: 0 }; reconcile(c, w); assert.equal(c.gathered.wood, 1);
-  c.sources = [];
-  step(c, w); other.position = { ...blockAt }; reconcile(c, w);
-  assert.equal(o.status, 'awaiting-world'); assert.equal(w.read(blockAt), 'air');
-  other.position = { x: 4, y: 1, z: 0 }; reconcile(c, w); assert.equal(o.status, 'complete'); accounting(c);
+  other.position = { x: 4, y: 1, z: 0 }; reconcile(c, w); assert.equal(c.gathered.wood, 1); accounting(c);
+  // Start a separate placement fixture with material already carried, to isolate occupancy.
+  const placement = corridor(); placement.c.sources = []; placement.w.set(placement.target, 'air');
+  placement.d.position = { x: 5, y: 1, z: 0 }; placement.d.carry.wood = 1;
+  const p = queueBlock(placement.c, blockAt, 'air', 'wood'); step(placement.c, placement.w);
+  const visitor = addDwarf(placement.c, 'Visitor', { ...blockAt }); reconcile(placement.c, placement.w);
+  assert.equal(p.status, 'awaiting-world'); assert.equal(placement.w.read(blockAt), 'air');
+  visitor.position = { x: 4, y: 1, z: 0 }; reconcile(placement.c, placement.w);
+  assert.equal(p.status, 'complete'); accounting(placement.c, 1);
 });
 test('mid-step position, route, task, and travel progress round-trip and replay exactly', () => {
   const a = corridor(); const b = corridor();

@@ -35,6 +35,8 @@ export function observeMovement(c: Colony, feedback: MovementFeedback): boolean 
   } else {
     if (feedback.kind === 'corrected') { d.position = { ...feedback.position }; d.positionKnown = true; }
     else d.positionKnown = false;
+    if (d.haul?.kind === 'pickup') delete d.haul.workPath;
+    delete d.deliveryRoute;
     d.path = []; delete d.search; d.searchRetryAt = 0;
     d.actionNotBeforeTick = Math.max(d.actionNotBeforeTick, c.tick + 1);
     stopMovement(c, d, feedback.kind, true);

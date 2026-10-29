@@ -1,17 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createColony, addDwarf, queueBlock, step, tick, acknowledge, reconcile, runHeadless, advanceTo, MemoryWorld, shelterPlan, type Colony } from '../src/index.ts';
-import { setup as baseSetup, until, putDwarf } from './fixtures.ts';
+import { setup as baseSetup, until, putDwarf, preload, accounting as checkAccounting } from './fixtures.ts';
 function setup(count = 5) {
   const { c, w } = baseSetup(count);
   c.sites = [0, 5, 10].map(x => ({ x, y: 1, z: 0 }));
-  c.resources.wood = 80;
+  c.stockpiles[0]!.resources.wood = 80;
   return { c, w };
 }
-function accounting(c: Colony, initial = 80) {
-  assert.equal(c.resources.wood + c.consumedWood + c.orders.filter(o => o.reserved).length, initial);
-  assert.ok(c.resources.wood >= 0);
-}
+function accounting(c: Colony, initial = 80) { checkAccounting(c, initial); }
 test('five dwarves autonomously construct three supported huts and receive homes', () => {
   const { c, w } = setup(); until(c, w, () => c.dwellings.length === 3);
   assert.equal(c.dwellings.length, 3); assert.ok(c.dwarves.every(d => d.home));
@@ -21,7 +18,7 @@ test('five dwarves autonomously construct three supported huts and receive homes
 });
 test('work remains provisional without acknowledgement, even when the target already matches', () => {
   const { c, w } = setup(1); c.sites = [];
-  const o = queueBlock(c, { x: 1, y: 1, z: 1 }, 'air', 'wood'); putDwarf(c, { x: 1, y: 1, z: 0 }); step(c, w);
+  const o = queueBlock(c, { x: 1, y: 1, z: 1 }, 'air', 'wood'); putDwarf(c, { x: 1, y: 1, z: 0 }); preload(c); step(c, w);
   assert.equal(o.status, 'awaiting-world'); assert.equal(w.read(o.at), 'air');
   w.set(o.at, 'wood'); reconcile(c, w);
   assert.equal(o.status, 'blocked'); accounting(c);
@@ -32,7 +29,7 @@ test('unavailable terrain is unknown and cannot authorize a plan', () => {
   w.available = true; runHeadless(c, w, 1); assert.equal(c.shelters.length, 1);
 });
 test('offline work is bounded by wood and never becomes realized housing', () => {
-  const { c, w } = setup(); until(c, w, () => c.pending.length > 0, 200, 0); w.available = false;
+  const { c, w } = setup(); until(c, w, () => c.pending.length > 0, 1000, 0); w.available = false;
   const consumed = c.consumedWood; const before = c.dwarves[0]!.hunger;
   runHeadless(c, w, 30);
   assert.equal(c.consumedWood, consumed); assert.equal(c.dwellings.length, 0);
@@ -41,12 +38,12 @@ test('offline work is bounded by wood and never becomes realized housing', () =>
 });
 test('conflict after unloading preserves partial work, refunds reservations, and permits other huts', () => {
   const { c, w } = setup(); until(c, w, () => c.orders.filter(o => o.status === 'complete').length >= 5);
-  until(c, w, () => c.pending.length > 0, 100, 0); w.available = false; runHeadless(c, w, 12);
+  until(c, w, () => c.pending.length > 0, 500, 0); w.available = false; runHeadless(c, w, 12);
   const target = c.pending[0]!;
   const project = c.orders.find(o => o.id === target.id)!.project!;
   const complete = c.orders.filter(o => o.project === project && o.status === 'complete');
   assert.ok(complete.length > 0);
-  w.set(target.at, 'stone'); w.available = true; until(c, w, () => c.dwellings.length === 2, 2000, 2);
+  w.set(target.at, 'stone'); w.available = true; until(c, w, () => c.dwellings.length === 2, 10000, 2);
   assert.equal(w.read(target.at), 'stone');
   assert.equal(c.shelters.find(s => s.id === project)!.status, 'suspended');
   for (const o of complete) assert.equal(w.read(o.at), 'wood');
@@ -54,8 +51,12 @@ test('conflict after unloading preserves partial work, refunds reservations, and
   assert.ok(!c.orders.some(o => o.project === project && o.reserved)); accounting(c);
 });
 test('reconciliation bounds attempts and unavailable operations do not starve others', () => {
-  const { c, w } = setup(1); c.sites = [];
-  for (let x = 0; x < 3; x++) { queueBlock(c, { x, y: 1, z: 0 }, 'air', 'wood'); putDwarf(c, { x, y: 1, z: -1 }); step(c, w); }
+  const { c, w } = setup(3); c.sites = [];
+  for (let x = 0; x < 3; x++) {
+    queueBlock(c, { x, y: 1, z: 0 }, 'air', 'wood');
+    c.dwarves[x]!.position = { x, y: 1, z: -1 }; preload(c, 1, x);
+  }
+  step(c, w);
   w.setAvailable(c.pending[0]!.at, false);
   let calls = 0;
   const port = { read: w.read.bind(w), apply: (change: Parameters<MemoryWorld['apply']>[0]) => { calls++; return w.apply(change); } };
@@ -67,7 +68,7 @@ test('reconciliation bounds attempts and unavailable operations do not starve ot
 test('protected air and revoked territory reject edits with resources preserved', () => {
   for (const mode of ['protected', 'revoked']) {
     const { c, w } = setup(1); c.sites = [];
-    const o = queueBlock(c, { x: 1, y: 1, z: 1 }, 'air', 'wood'); putDwarf(c, { x: 1, y: 1, z: 0 }); step(c, w);
+    const o = queueBlock(c, { x: 1, y: 1, z: 1 }, 'air', 'wood'); putDwarf(c, { x: 1, y: 1, z: 0 }); preload(c); step(c, w);
     if (mode === 'protected') w.protect(o.at); else c.territory = [];
     reconcile(c, w); assert.equal(o.status, 'blocked'); assert.equal(w.read(o.at), 'air'); accounting(c);
   }
@@ -86,7 +87,7 @@ test('construction requires territory and known support, including interior clea
 });
 test('receipts and acknowledgements are idempotent and never overwrite subsequent player edits', () => {
   const { c, w } = setup(1); c.sites = [];
-  const o = queueBlock(c, { x: 1, y: 1, z: 1 }, 'air', 'wood'); putDwarf(c, { x: 1, y: 1, z: 0 }); step(c, w);
+  const o = queueBlock(c, { x: 1, y: 1, z: 1 }, 'air', 'wood'); putDwarf(c, { x: 1, y: 1, z: 0 }); preload(c); step(c, w);
   const change = c.pending[0]!; const first = w.apply(change)!;
   w.set(o.at, 'stone'); assert.deepEqual(w.apply(change), first); assert.equal(w.read(o.at), 'stone');
   acknowledge(c, first); acknowledge(c, first); assert.equal(c.consumedWood, 1); accounting(c);
@@ -108,7 +109,7 @@ test('seeded runs, JSON snapshots, tick, and advanceTo produce equivalent outcom
   assert.throws(() => reconcile(a.c, a.w, 0.5));
 });
 test('limited resources constrain actual and provisional construction', () => {
-  const { c, w } = setup(); c.resources.wood = 2; until(c, w, () => c.consumedWood === 2);
+  const { c, w } = setup(); c.stockpiles[0]!.resources.wood = 2; until(c, w, () => c.consumedWood === 2);
   assert.equal(c.consumedWood, 2); assert.equal(c.dwellings.length, 0); accounting(c, 2);
 });
 test('revoking territory stops travel and further preparation without stranded reservations', () => {

@@ -6,9 +6,8 @@ function crowd(count = 40) {
   const c = createColony(1); const w = new MemoryWorld();
   for (let x = 0; x < 30; x++) for (let z = 0; z < 30; z++) w.set({ x, y: 0, z }, 'dirt');
   c.territory = [{ min: { x: 0, y: 0, z: 0 }, max: { x: 29, y: 5, z: 29 } }];
-  c.resources.wood = count;
   for (let n = 0; n < count; n++) {
-    addDwarf(c, `Dwarf ${n}`, { x: 0, y: 1, z: 0 });
+    addDwarf(c, `Dwarf ${n}`, { x: 0, y: 1, z: 0 }).carry.wood = 1;
     queueBlock(c, { x: 10 + n % 5, y: 1, z: 10 + Math.floor(n / 5) }, 'air', 'wood');
   }
   return { c, w };

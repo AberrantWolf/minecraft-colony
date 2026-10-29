@@ -2,8 +2,12 @@
 export type Voxel = { x: number; y: number; z: number };
 export type Block = 'air' | 'dirt' | 'wood' | 'stone' | 'berries';
 export type Resource = 'wood' | 'food';
+export type Inventory = { wood: number; food: number };
+export type Stockpile = { id: string; at: Voxel; capacity: number; resources: Inventory; enabled: boolean };
+export type HaulTask = { kind: 'deposit' | 'meal'; stockpileId: string }
+  | { kind: 'pickup'; stockpileId: string; orderId: string; workPath?: Voxel[] };
 export type ResourceSource = { at: Voxel; resource: Resource };
-export type Activity = 'idle' | 'eating' | 'resting' | 'gathering' | 'building' | 'walking';
+export type Activity = 'idle' | 'eating' | 'resting' | 'gathering' | 'building' | 'walking' | 'hauling';
 export type Territory = { min: Voxel; max: Voxel };
 export type Change = { id: string; at: Voxel; expected: Block; next: Block; reason: string };
 export type ChangeResult = { id: string; applied: boolean; actual?: Block; reason?: string };
@@ -27,6 +31,8 @@ export type Dwarf = {
   position: Voxel; path: Voxel[]; task?: string; moveTicks: number;
   positionKnown: boolean; motionRevision: number; motion?: MovementCommand; lastMotionSequence: number; actionNotBeforeTick: number;
   search?: PathSearch; searchRetryAt: number;
+  carry: Inventory; deliveryRequired: boolean; haul?: HaulTask;
+  deliveryRoute?: { stockpileId: string; from: Voxel; path: Voxel[] };
 };
 export type Dwelling = { id: string; capacity: number; quality: number; occupied: string[] };
 export type WorkOrder = {
@@ -35,12 +41,12 @@ export type WorkOrder = {
 };
 export type Shelter = { id: string; origin: Voxel; status: 'building' | 'suspended' | 'complete'; orders: string[] };
 export type Colony = {
-  version: 5; tick: number; nextId: number; rng: number;
+  version: 6; tick: number; nextId: number; rng: number;
   movementMode: MovementMode;
   pathfinding: { queue: string[]; starts: number; startedTick: number; expanded: number; totalExpanded: number; totalStarted: number };
   dwarves: Dwarf[]; dwellings: Dwelling[]; orders: WorkOrder[]; pending: Change[];
   shelters: Shelter[]; territory: Territory[]; sites: Voxel[];
-  resources: { wood: number; food: number }; consumedWood: number;
+  stockpiles: Stockpile[]; consumedWood: number;
   sources: ResourceSource[]; gathered: { wood: number; food: number }; consumedFood: number;
   reconciliationCursor: number; events: string[];
 };

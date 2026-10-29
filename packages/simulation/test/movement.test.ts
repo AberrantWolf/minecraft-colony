@@ -7,7 +7,7 @@ function fixture() {
   c.territory = [{ min: { x: 0, y: 0, z: 0 }, max: { x: 10, y: 4, z: 2 } }];
   for (let x = 0; x <= 10; x++) for (let z = 0; z < 3; z++) w.set({ x, y: 0, z }, 'dirt');
   const d = addDwarf(c, 'Urist', { x: 0, y: 1, z: 0 });
-  c.resources.wood = 1; const order = queueBlock(c, { x: 6, y: 1, z: 0 }, 'air', 'wood');
+  c.dwarves[0]!.carry.wood = 1; const order = queueBlock(c, { x: 6, y: 1, z: 0 }, 'air', 'wood');
   until(c, w, () => d.motion?.kind === 'move');
   return { c, w, d, order };
 }
@@ -19,7 +19,7 @@ test('adapter motion emits stable waypoints at 20 TPS, and elapsed ticks cannot 
   assert.equal(first.durationTicks, 8); assert.equal(first.blocksPerSecond, 2.5);
   assert.deepEqual(first.from, d.position); assert.deepEqual(first.to, { x: 1, y: 1, z: 0 });
   runHeadless(c, w, 100);
-  assert.equal(d.position.x, 0); assert.equal(order.status, 'pending'); assert.equal(c.resources.wood, 1);
+  assert.equal(d.position.x, 0); assert.equal(order.status, 'pending'); assert.equal(c.dwarves[0]!.carry.wood, 1);
   assert.deepEqual(d.motion, first); assert.deepEqual(getMovementCommands(c), [first]);
   assert.deepEqual(getMovementCommands(c, { [d.id]: first.revision }), []);
   const detached = move(getMovementCommands(c)[0]); detached.to.x = 99; assert.equal(move(d.motion).to.x, 1);
@@ -91,7 +91,7 @@ test('malformed, duplicate, stale, and mismatched feedback never mutates colony 
 test('needs and changed terrain emit superseding stops so obsolete NPC commands cannot complete', () => {
   for (const reason of ['needs', 'terrain']) {
     const { c, w, d } = fixture(); const old = move(d.motion);
-    if (reason === 'needs') { d.hunger = 80; c.resources.food = 1; }
+    if (reason === 'needs') { d.hunger = 80; c.dwarves[0]!.carry.food = 1; }
     else { w.set(old.to, 'stone'); w.set({ ...old.to, y: 2 }, 'stone'); }
     step(c, w); assert.equal(d.motion?.kind, 'stop'); assert.ok(d.motionRevision > old.revision);
     assert.equal(observeMovement(c, { dwarfId: d.id, revision: old.revision, sequence: 1, kind: 'arrived', position: old.to }), false);
